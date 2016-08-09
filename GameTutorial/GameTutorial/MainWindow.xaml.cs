@@ -13,6 +13,7 @@ using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+using System.Windows.Threading;
 
 namespace GameTutorial
 {
@@ -42,8 +43,11 @@ namespace GameTutorial
             Canvas.SetLeft(rect, 0);
             Canvas.SetTop(rect, 0);
 
-            //注册界面刷新事件
-            CompositionTarget.Rendering += new EventHandler(Timer_Tick);
+            //定义线程
+            DispatcherTimer dispatcherTimer = new DispatcherTimer(DispatcherPriority.Normal);
+            dispatcherTimer.Tick += new EventHandler(Timer_Tick);
+            dispatcherTimer.Interval = TimeSpan.FromMilliseconds(10); //重复间隔
+            dispatcherTimer.Start();
         }
 
         private void Carrier_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
