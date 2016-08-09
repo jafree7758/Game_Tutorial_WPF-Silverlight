@@ -21,14 +21,19 @@ namespace GameTutorial
     /// </summary>
     public partial class MainWindow : Window
     {
-        Rectangle rect;//创建一个方块作为演示对象
+        Rectangle rect;         //创建一个方块作为演示对象
+        double speed = 20;      //设置移动速度
+        double speedX = 1;
+        double speedY = 1;
+        Point moveTo;           //设置移动目标
+        bool moveFlag = false;  // 为false时表示不用移动
 
         public MainWindow()
         {
             InitializeComponent();
 
             rect = new Rectangle();
-            rect.Fill = new SolidColorBrush(Colors.Red);
+            rect.Fill = new SolidColorBrush(Colors.Green);
             rect.Width = 50;
             rect.Height = 50;
             rect.RadiusX = 5;
@@ -36,66 +41,40 @@ namespace GameTutorial
             Carrier.Children.Add(rect);
             Canvas.SetLeft(rect, 0);
             Canvas.SetTop(rect, 0);
+
+            //注册界面刷新事件
+            CompositionTarget.Rendering += new EventHandler(Timer_Tick);
         }
 
         private void Carrier_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
+            moveTo = e.GetPosition(Carrier);
 
-            //创建移动动画
+            speedX = speed * Math.Cos(Math.Atan2(Math.Abs(moveTo.Y - Canvas.GetTop(rect)), Math.Abs(moveTo.X - Canvas.GetLeft(rect))));
+            speedY = speed * Math.Sin(Math.Atan2(Math.Abs(moveTo.Y - Canvas.GetTop(rect)), Math.Abs(moveTo.X - Canvas.GetLeft(rect))));
+            moveFlag = true;
+        }
 
-            Point p = e.GetPosition(Carrier);
+        private void Timer_Tick(object sender, EventArgs e)
+        {
+            double rect_X = Canvas.GetLeft(rect);
+            double rect_Y = Canvas.GetTop(rect);
 
-            Storyboard storyboard = new Storyboard();
-
-            //创建X轴方向动画
-
-            DoubleAnimation doubleAnimation = new DoubleAnimation(
-
-              Canvas.GetLeft(rect),
-
-              p.X,
-
-              new Duration(TimeSpan.FromMilliseconds(500))
-
-            );
-
-            Storyboard.SetTarget(doubleAnimation, rect);
-
-            Storyboard.SetTargetProperty(doubleAnimation, new PropertyPath("(Canvas.Left)"));
-
-            storyboard.Children.Add(doubleAnimation);
-
-            //创建Y轴方向动画
-
-            doubleAnimation = new DoubleAnimation(
-
-              Canvas.GetTop(rect),
-
-              p.Y,
-
-              new Duration(TimeSpan.FromMilliseconds(500))
-
-            );
-
-            Storyboard.SetTarget(doubleAnimation, rect);
-
-            Storyboard.SetTargetProperty(doubleAnimation, new PropertyPath("(Canvas.Top)"));
-
-            storyboard.Children.Add(doubleAnimation);
-
-            //将动画动态加载进资源内
-
-            if (!Resources.Contains("rectAnimation"))
+            if (moveFlag)
             {
-
-                Resources.Add("rectAnimation", storyboard);
-
+                Canvas.SetLeft(rect, rect_X + (rect_X < moveTo.X ? speedX : -speedX));
+                Canvas.SetTop(rect, rect_Y + (rect_Y < moveTo.Y ? speedY : -speedY));
             }
-
-            //动画播放
-
-            storyboard.Begin();
-
+            else
+            {
+                Canvas.SetLeft(rect, moveTo.X);
+                Canvas.SetTop(rect, moveTo.Y);
+            }
+            
+            if ((Math.Abs(rect_X - moveTo.X) <= speed) && (Math.Abs(rect_Y - moveTo.Y) <= speed))
+            {
+                moveFlag = false;
+            }
         }
     }
 }
