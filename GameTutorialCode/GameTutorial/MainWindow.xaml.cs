@@ -22,13 +22,6 @@ namespace GameTutorial
     /// </summary>
     public partial class MainWindow : Window
     {
-        //Rectangle rect;         //创建一个方块作为演示对象
-        //double speed = 20;      //设置移动速度
-        //double speedX = 1;
-        //double speedY = 1;
-        //Point moveTo;           //设置移动目标
-        //bool moveFlag = false;  // 为false时表示不用移动
-
         int count = 1;
         Image Spirit;
 
@@ -47,24 +40,30 @@ namespace GameTutorial
             //定义线程
             DispatcherTimer dispatcherTimer = new DispatcherTimer(DispatcherPriority.Normal);
             dispatcherTimer.Tick += new EventHandler(Timer_Tick);
-            dispatcherTimer.Interval = TimeSpan.FromMilliseconds(200); //重复间隔
+            dispatcherTimer.Interval = TimeSpan.FromMilliseconds(100); //重复间隔
             dispatcherTimer.Start();
         }
 
-        //private void Carrier_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-        //{
-        //    moveTo = e.GetPosition(Carrier);
-
-        //    speedX = speed * Math.Cos(Math.Atan2(Math.Abs(moveTo.Y - Canvas.GetTop(rect)), Math.Abs(moveTo.X - Canvas.GetLeft(rect))));
-        //    speedY = speed * Math.Sin(Math.Atan2(Math.Abs(moveTo.Y - Canvas.GetTop(rect)), Math.Abs(moveTo.X - Canvas.GetLeft(rect))));
-        //    moveFlag = true;
-        //}
-
         private void Timer_Tick(object sender, EventArgs e)
         {
-            Spirit.Source = new BitmapImage(new Uri(@"Player\" + count + ".png", UriKind.Relative));
+            //Spirit.Source = new BitmapImage(new Uri(@"Player\" + count + ".png", UriKind.Relative));
+            Spirit.Source = cutImage(@"Player\PlayerMagic.png", count * 150, 0, 150, 150);
 
-            count = count == 7 ? 0 : count + 1;
+            count = count == 9 ? 0 : count + 1;
+        }
+
+        /// <summary>
+        /// 截取图片
+        /// </summary>
+        /// <param name="imgaddress">文件名(包括地址+扩展名)</param>
+        /// <param name="x">左上角点X</param>
+        /// <param name="y">左上角点Y</param>
+        /// <param name="width">截取的图片宽</param>
+        /// <param name="height">截取的图片高</param>
+        /// <returns>截取后图片数据源</returns>
+        private BitmapSource cutImage(string imgaddress, int x, int y, int width, int height)
+        {
+            return new CroppedBitmap(BitmapFrame.Create(new Uri(imgaddress, UriKind.Relative)), new Int32Rect(x, y, width, height));
         }
     }
 }
