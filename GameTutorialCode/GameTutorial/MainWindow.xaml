@@ -6,6 +6,7 @@
         xmlns:local="clr-namespace:GameTutorial"
         mc:Ignorable="d"
         Title="WPFGame" Width="800" Height="600">
-    <Canvas x:Name="Carrier" Background="Silver" Margin="0,0,0,0" />
+    <Canvas x:Name="Carrier" Background="Silver" Margin="0,0,0,0"
+            MouseLeftButtonDown="Carrier_MouseLeftButtonDown"/>
 
 </Window>
