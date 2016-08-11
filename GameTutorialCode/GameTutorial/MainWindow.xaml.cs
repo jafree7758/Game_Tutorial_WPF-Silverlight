@@ -11,6 +11,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using System.Windows.Media.Animation;
+using System.Windows.Threading;
 using QX.Game.PathFinder;
 
 namespace GameTutorial
@@ -24,26 +25,70 @@ namespace GameTutorial
         private IPathFinder PathFinder = null;
         private byte[,] Matrix = new byte[1024, 1024]; //寻路用二维矩阵
         private int GridSize = 20; //单位格子大小
-        private System.Drawing.Point Start = System.Drawing.Point.Empty; //移动起点坐标
-        private System.Drawing.Point End = System.Drawing.Point.Empty; //移动终点坐标
+        private System.Drawing.Point Start = System.Drawing.Point.Empty;    //移动起点坐标
+        private System.Drawing.Point End = System.Drawing.Point.Empty;      //移动终点坐标
 
         public MainWindow()
         {
             InitializeComponent();
             ResetMatrix();  //初始化二维矩阵
             InitPlayer();   //初始化目标对象
+            InitMap(); //初始化地图
+
+            DispatcherTimer dispatcherTimer = new DispatcherTimer();
+            dispatcherTimer.Tick += new EventHandler(dispatcherTimer_Tick);
+            dispatcherTimer.Interval = TimeSpan.FromMilliseconds(100);
+            dispatcherTimer.Start();
         }
 
-        Ellipse player = new Ellipse(); //用一个圆来模拟目标对象
+        Image Map = new Image();
+        private void InitMap()
+        {
+            Map.Width = 800;
+            Map.Height = 600;
+            Map.Source = new BitmapImage((new Uri(@"Map\Map.jpg", UriKind.Relative)));
+            Carrier.Children.Add(Map);
+            Map.SetValue(Canvas.ZIndexProperty, -1);
+        }
+
+        int count = 1;
+        Image Spirit = new Image(); //创建主角
+        int SpiritCenterX = 4; //主角脚底离主角图片左边的距离(游戏坐标系中)
+        int SpiritCenterY = 5; //主角脚底离主角顶部的距离(游戏坐标系中)
+        //游戏坐标系中Spirit坐标(缩小操作)
+        int _SpiritGameX;
+        int SpiritGameX
+        {
+            get { return ((int)Canvas.GetLeft(Spirit) / GridSize) + SpiritCenterX; }
+            set { _SpiritGameX = value; }
+        }
+        int _SpiritGameY;
+        int SpiritGameY
+        {
+            get { return ((int)Canvas.GetTop(Spirit) / GridSize) + SpiritCenterY; }
+            set { _SpiritGameY = value; }
+        }
+        //窗口坐标系中Spirit坐标(放大操作)
+        int SpiritWindowX
+        {
+            get { return (SpiritGameX - SpiritCenterX) * GridSize; }
+        }
+        int SpiritWindowY
+        {
+            get { return (SpiritGameY - SpiritCenterY) * GridSize; }
+        }
+
         private void InitPlayer()
         {
-            player.Fill = new SolidColorBrush(Colors.Blue);
-            player.Width = GridSize;
-            player.Height = GridSize;
-            Carrier.Children.Add(player);
-            //开始位置(1,1)
-            Canvas.SetLeft(player, GridSize);
-            Canvas.SetTop(player, 5 * GridSize);
+            Spirit.Width = 150;
+            Spirit.Height = 150;
+            Carrier.Children.Add(Spirit);
+            // 初始化主角位置
+            Canvas.SetLeft(Spirit, 20);
+            Canvas.SetTop(Spirit, 20);
+            // 初始时认为终点就在主角脚下
+            End.X = 5;
+            End.Y = 6;
         }
 
         private void ResetMatrix()
@@ -56,65 +101,92 @@ namespace GameTutorial
                     Matrix[x, y] = 1;
                 }
             }
-            
-            //构建障碍物
-            for (int y = 3; y < 30; y++)
+
+            //构建障碍物(第10节用)
+            //for (int x = 10; x < 20; x++) {
+            //    for (int y = 0; y < 10; y++) {
+            //        Matrix[x, y] = 0;
+            //        rect = new Rectangle();
+            //        rect.Fill = new SolidColorBrush(Colors.GreenYellow);
+            //        rect.Opacity = 0.3;
+            //        rect.Stroke = new SolidColorBrush(Colors.Gray);
+            //        rect.Width = GridSize;
+            //        rect.Height = GridSize;
+            //        Carrier.Children.Add(rect);
+            //        Canvas.SetLeft(rect, x * GridSize);
+            //        Canvas.SetTop(rect, y * GridSize);
+            //    }
+            //}
+            //构建障碍物(第9节用)
+            for (int y = 12; y <= 27; y++)
             {
-                //障碍物在矩阵中用0表示
-                Matrix[3, y] = 0;
-                rect = new Rectangle();
-                rect.Fill = new SolidColorBrush(Colors.Red);
-                rect.Width = GridSize;
-                rect.Height = GridSize;
-                Carrier.Children.Add(rect);
-                Canvas.SetLeft(rect, 3 * GridSize);
-                Canvas.SetTop(rect, y * GridSize);
+                for (int x = 0; x <= 7; x++)
+                {
+                    //障碍物在矩阵中用0表示
+                    Matrix[x, y] = 0;
+                    rect = new Rectangle();
+                    rect.Fill = new SolidColorBrush(Colors.GreenYellow);
+                    rect.Opacity = 0.3;
+                    rect.Stroke = new SolidColorBrush(Colors.Gray);
+                    rect.Width = GridSize;
+                    rect.Height = GridSize;
+                    Carrier.Children.Add(rect);
+                    Canvas.SetLeft(rect, x * GridSize);
+                    Canvas.SetTop(rect, y * GridSize);
+                }
             }
-            for (int y = 3; y < 20; y++)
+            int move = 0;
+            for (int x = 8; x <= 15; x++)
             {
-                //障碍物在矩阵中用0表示
-                Matrix[24, y] = 0;
-                rect = new Rectangle();
-                rect.Fill = new SolidColorBrush(Colors.Red);
-                rect.Width = GridSize;
-                rect.Height = GridSize;
-                Carrier.Children.Add(rect);
-                Canvas.SetLeft(rect, 24 * GridSize);
-                Canvas.SetTop(rect, y * GridSize);
+                for (int y = 12; y <= 18; y++)
+                {
+                    Matrix[x, y - move] = 0;
+                    rect = new Rectangle();
+                    rect.Fill = new SolidColorBrush(Colors.GreenYellow);
+                    rect.Opacity = 0.3;
+                    rect.Stroke = new SolidColorBrush(Colors.Gray);
+                    rect.Width = GridSize;
+                    rect.Height = GridSize;
+                    Carrier.Children.Add(rect);
+                    Canvas.SetLeft(rect, x * GridSize);
+                    Canvas.SetTop(rect, (y - move) * GridSize);
+                }
+                move = x % 2 == 0 ? move + 1 : move;
             }
-            for (int i = 0; i < 18; i++)
+            int start_y = 4;
+            int end_y = 10;
+            for (int x = 16; x <= 23; x++)
             {
-                //障碍物在矩阵中用0表示
-                Matrix[i, 12] = 0;
-                rect = new Rectangle();
-                rect.Fill = new SolidColorBrush(Colors.Red);
-                rect.Width = GridSize;
-                rect.Height = GridSize;
-                Carrier.Children.Add(rect);
-                Canvas.SetLeft(rect, i * GridSize);
-                Canvas.SetTop(rect, 12 * GridSize);
+                for (int y = start_y; y <= end_y; y++)
+                {
+                    Matrix[x, y + move] = 0;
+                    rect = new Rectangle();
+                    rect.Fill = new SolidColorBrush(Colors.GreenYellow);
+                    rect.Opacity = 0.3;
+                    rect.Stroke = new SolidColorBrush(Colors.Gray);
+                    rect.Width = GridSize;
+                    rect.Height = GridSize;
+                    Carrier.Children.Add(rect);
+                    Canvas.SetLeft(rect, x * GridSize);
+                    Canvas.SetTop(rect, (y + move) * GridSize);
+                }
+                start_y = x % 3 == 0 ? start_y + 1 : start_y;
+                end_y = x % 3 == 0 ? end_y - 1 : end_y;
             }
-            for (int i = 12; i < 17; i++)
+        }
+
+        private void dispatcherTimer_Tick(object sender, EventArgs e)
+        {
+            if ((End.X == SpiritGameX) && (End.Y == SpiritGameY))
             {
-                Matrix[17, i] = 0;
-                rect = new Rectangle();
-                rect.Fill = new SolidColorBrush(Colors.Red);
-                rect.Width = GridSize;
-                rect.Height = GridSize;
-                Carrier.Children.Add(rect);
-                Canvas.SetLeft(rect, 17 * GridSize);
-                Canvas.SetTop(rect, i * GridSize);
+                // 未移动使用静止图片
+                Spirit.Source = cutImage(@"Player\PlayerMagic.png", 0, 0, 150, 150);
             }
-            for (int i = 3; i < 18; i++)
+            else
             {
-                Matrix[i, 16] = 0;
-                rect = new Rectangle();
-                rect.Fill = new SolidColorBrush(Colors.Red);
-                rect.Width = GridSize;
-                rect.Height = GridSize;
-                Carrier.Children.Add(rect);
-                Canvas.SetLeft(rect, i * GridSize);
-                Canvas.SetTop(rect, 16 * GridSize);
+                // 移动时使用动态图片
+                Spirit.Source = new BitmapImage((new Uri(@"Player\" + count + ".png", UriKind.Relative)));
+                count = count == 7 ? 0 : count + 1;
             }
         }
 
@@ -122,8 +194,8 @@ namespace GameTutorial
         {
             Point p = e.GetPosition(Carrier);
             //进行坐标系缩小
-            int start_x = (int)Canvas.GetLeft(player) / GridSize;
-            int start_y = (int)Canvas.GetTop(player) / GridSize;
+            int start_x = SpiritGameX;
+            int start_y = SpiritGameY;
             Start = new System.Drawing.Point(start_x, start_y); //设置起点坐标
             int end_x = (int)p.X / GridSize;
             int end_y = (int)p.Y / GridSize;
@@ -131,8 +203,6 @@ namespace GameTutorial
 
             PathFinder = new PathFinderFast(Matrix);
             PathFinder.Formula = HeuristicFormula.Manhattan; //使用我个人觉得最快的曼哈顿A*算法
-            PathFinder.HeavyDiagonals = true; //使用对角线移动
-            PathFinder.HeuristicEstimate = 0;
             List<PathFinderNode> path = PathFinder.FindPath(Start, End); //开始寻径
 
             if (path == null)
@@ -154,23 +224,24 @@ namespace GameTutorial
                 DoubleAnimationUsingKeyFrames keyFramesAnimationX = new DoubleAnimationUsingKeyFrames();
                 //总共花费时间 = path.Count * cost
                 keyFramesAnimationX.Duration = new Duration(TimeSpan.FromMilliseconds(path.Count * cost));
-                Storyboard.SetTarget(keyFramesAnimationX, player);
+                Storyboard.SetTarget(keyFramesAnimationX, Spirit);
                 Storyboard.SetTargetProperty(keyFramesAnimationX, new PropertyPath("(Canvas.Left)"));
                 //创建Y轴方向逐帧动画
                 DoubleAnimationUsingKeyFrames keyFramesAnimationY = new DoubleAnimationUsingKeyFrames();
                 keyFramesAnimationY.Duration = new Duration(TimeSpan.FromMilliseconds(path.Count * cost));
-                Storyboard.SetTarget(keyFramesAnimationY, player);
+                Storyboard.SetTarget(keyFramesAnimationY, Spirit);
                 Storyboard.SetTargetProperty(keyFramesAnimationY, new PropertyPath("(Canvas.Top)"));
                 for (int i = 0; i < framePosition.Count(); i++)
                 {
                     //加入X轴方向的匀速关键帧
                     LinearDoubleKeyFrame keyFrame = new LinearDoubleKeyFrame();
-                    keyFrame.Value = i == 0 ? Canvas.GetLeft(player) : framePosition[i].X; //平滑衔接动画
+                    //平滑衔接动画
+                    keyFrame.Value = i == 0 ? Canvas.GetLeft(Spirit) : (framePosition[i].X - SpiritCenterX * GridSize);
                     keyFrame.KeyTime = KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(cost * i));
                     keyFramesAnimationX.KeyFrames.Add(keyFrame);
                     //加入X轴方向的匀速关键帧
                     keyFrame = new LinearDoubleKeyFrame();
-                    keyFrame.Value = i == 0 ? Canvas.GetTop(player) : framePosition[i].Y;
+                    keyFrame.Value = i == 0 ? Canvas.GetTop(Spirit) : (framePosition[i].Y - SpiritCenterY * GridSize);
                     keyFrame.KeyTime = KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(cost * i));
                     keyFramesAnimationY.KeyFrames.Add(keyFrame);
                 }
@@ -190,6 +261,20 @@ namespace GameTutorial
                     Canvas.SetTop(rect, path[i].Y * GridSize);
                 }
             }
+        }
+
+        /// <summary>
+        /// 截取图片
+        /// </summary>
+        /// <param name="imgaddress">文件名(包括地址+扩展名)</param>
+        /// <param name="x">左上角点X</param>
+        /// <param name="y">左上角点Y</param>
+        /// <param name="width">截取的图片宽</param>
+        /// <param name="height">截取的图片高</param>
+        /// <returns>截取后图片数据源</returns>
+        private BitmapSource cutImage(string imgaddress, int x, int y, int width, int height)
+        {
+            return new CroppedBitmap(BitmapFrame.Create(new Uri(imgaddress, UriKind.Relative)), new Int32Rect(x, y, width, height));
         }
     }
 }
