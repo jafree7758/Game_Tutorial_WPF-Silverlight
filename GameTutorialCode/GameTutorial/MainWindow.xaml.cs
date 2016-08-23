@@ -27,19 +27,26 @@ namespace GameTutorial
         private int GridSize = 20; //单位格子大小
         private System.Drawing.Point Start = System.Drawing.Point.Empty;    //移动起点坐标
         private System.Drawing.Point End = System.Drawing.Point.Empty;      //移动终点坐标
+        private TextBlock message = new TextBlock();
 
         public MainWindow()
         {
             InitializeComponent();
-            ResetMatrix();  //初始化二维矩阵
-            InitPlayer();   //初始化目标对象
-            InitMap();      //初始化地图
-            InitMask();     //初始化地图遮罩层
+            ResetMatrix(); //初始化二维矩阵
+            InitPlayer(); //初始化目标对象
+            InitMap(); //初始化地图
+            InitMask(); //初始化地图遮罩层
+            Carrier.Children.Add(message);
+            Canvas.SetLeft(message, 10);
+            Canvas.SetTop(message, 10);
 
             DispatcherTimer dispatcherTimer = new DispatcherTimer();
             dispatcherTimer.Tick += new EventHandler(dispatcherTimer_Tick);
-            dispatcherTimer.Interval = TimeSpan.FromMilliseconds(100);
+            dispatcherTimer.Interval = TimeSpan.FromMilliseconds(150);
             dispatcherTimer.Start();
+
+            //注册界面刷新事件
+            CompositionTarget.Rendering += new EventHandler(dispatcherTimer1_Tick);
         }
 
         Image Map = new Image();
@@ -180,65 +187,91 @@ namespace GameTutorial
                     Canvas.SetTop(rect, y * GridSize);
                 }
             }
-
-            //int move = 0;
-            //for (int x = 8; x <= 15; x++)
-            //{
-            //    for (int y = 12; y <= 18; y++)
-            //    {
-            //        Matrix[x, y - move] = 0;
-            //        rect = new Rectangle();
-            //        rect.Fill = new SolidColorBrush(Colors.GreenYellow);
-            //        rect.Opacity = 0.3;
-            //        rect.Stroke = new SolidColorBrush(Colors.Gray);
-            //        rect.Width = GridSize;
-            //        rect.Height = GridSize;
-            //        Carrier.Children.Add(rect);
-            //        Canvas.SetLeft(rect, x * GridSize);
-            //        Canvas.SetTop(rect, (y - move) * GridSize);
-            //    }
-            //    move = x % 2 == 0 ? move + 1 : move;
-            //}
-            //int start_y = 4;
-            //int end_y = 10;
-            //for (int x = 16; x <= 23; x++)
-            //{
-            //    for (int y = start_y; y <= end_y; y++)
-            //    {
-            //        Matrix[x, y + move] = 0;
-            //        rect = new Rectangle();
-            //        rect.Fill = new SolidColorBrush(Colors.GreenYellow);
-            //        rect.Opacity = 0.3;
-            //        rect.Stroke = new SolidColorBrush(Colors.Gray);
-            //        rect.Width = GridSize;
-            //        rect.Height = GridSize;
-            //        Carrier.Children.Add(rect);
-            //        Canvas.SetLeft(rect, x * GridSize);
-            //        Canvas.SetTop(rect, (y + move) * GridSize);
-            //    }
-            //    start_y = x % 3 == 0 ? start_y + 1 : start_y;
-            //    end_y = x % 3 == 0 ? end_y - 1 : end_y;
-            //}
         }
 
-        private void dispatcherTimer_Tick(object sender, EventArgs e)
+        //图片拾色
+        private Color pickColor(BitmapSource bitmapsource, int x, int y)
         {
-            if ((End.X == SpiritGameX) && (End.Y == SpiritGameY))
+            CroppedBitmap crop = new CroppedBitmap(bitmapsource as BitmapSource, new Int32Rect(x, y, 1, 1));
+            byte[] pixels = new byte[4];
+            try
             {
-                // 未移动使用静止图片
-                Spirit.Source = cutImage(@"Player\PlayerMagic.png", 0, 0, 150, 150);
+                crop.CopyPixels(pixels, 4, 0);
+                crop = null;
             }
-            else
+            catch (Exception ee)
             {
-                // 移动时使用动态图片
-                Spirit.Source = new BitmapImage((new Uri(@"Player\" + count + ".png", UriKind.Relative)));
-                count = count == 7 ? 0 : count + 1;
+                MessageBox.Show(ee.ToString());
             }
+            //蓝pixels[0] 绿pixels[1]  红pixels[2] 透明度pixels[3]
+            return Color.FromArgb(pixels[3], pixels[2], pixels[1], pixels[0]);
         }
 
-        private void Carrier_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        BitmapSource Deeper = new BitmapImage((new Uri(@"Map\Deeper.jpg", UriKind.Relative))); //设置地图副本
+        int X, Y; //主角当前的窗口真实坐标(非缩放)
+        Point target; //主角移动的最终目的
+        private void dispatcherTimer1_Tick(object sender, EventArgs e)
         {
-            Point p = e.GetPosition(Carrier);
+            X = Convert.ToInt32(Canvas.GetLeft(Spirit) + SpiritCenterX * GridSize);
+            Y = Convert.ToInt32(Canvas.GetTop(Spirit) + SpiritCenterY * GridSize);
+
+            //message.Text = "坐标:" + X + "  " + Y;
+            message.Text = pickColor(Deeper, X, Y).ToString();
+            //假如碰到障碍物则采用A*寻路
+            if (pickColor(Deeper, X, Y) == Colors.Black)
+            {
+                AStarMove(target);
+            }
+            else if (pickColor(Deeper, X, Y) == Colors.Yellow)
+            {
+                //假如是传送点则跳到坐标(200,20)
+                storyboard.Stop();
+                Canvas.SetLeft(Spirit, 200 - SpiritCenterX * GridSize);
+                Canvas.SetTop(Spirit, 20 - SpiritCenterY * GridSize);
+            }
+            //用白色点记录移动轨迹
+            rect = new Rectangle();
+            rect.Fill = new SolidColorBrush(Colors.Snow);
+            rect.Width = 5;
+            rect.Height = 5;
+            Carrier.Children.Add(rect);
+            Canvas.SetLeft(rect, X);
+            Canvas.SetTop(rect, Y);
+        }
+
+        Storyboard storyboard;
+        //普通移动
+        private void NormalMove(Point p)
+        {
+            //重新定位
+            p = new Point(p.X - SpiritCenterX * GridSize, p.Y - SpiritCenterY * GridSize);
+            //创建移动动画
+            storyboard = new Storyboard();
+            //创建X轴方向动画
+            DoubleAnimation doubleAnimation = new DoubleAnimation(
+              Canvas.GetLeft(Spirit),
+              p.X,
+              new Duration(TimeSpan.FromMilliseconds(1000))
+            );
+            Storyboard.SetTarget(doubleAnimation, Spirit);
+            Storyboard.SetTargetProperty(doubleAnimation, new PropertyPath("(Canvas.Left)"));
+            storyboard.Children.Add(doubleAnimation);
+            //创建Y轴方向动画
+            doubleAnimation = new DoubleAnimation(
+              Canvas.GetTop(Spirit),
+              p.Y,
+              new Duration(TimeSpan.FromMilliseconds(1000))
+            );
+            Storyboard.SetTarget(doubleAnimation, Spirit);
+            Storyboard.SetTargetProperty(doubleAnimation, new PropertyPath("(Canvas.Top)"));
+            storyboard.Children.Add(doubleAnimation);
+            //动画播放
+            storyboard.Begin();
+        }
+
+        //A*移动
+        private void AStarMove(Point p)
+        {
             //进行坐标系缩小
             int start_x = SpiritGameX;
             int start_y = SpiritGameY;
@@ -253,7 +286,7 @@ namespace GameTutorial
 
             if (path == null)
             {
-                MessageBox.Show("路径不存在！");
+                //MessageBox.Show("路径不存在！");
             }
             else
             {
@@ -295,17 +328,33 @@ namespace GameTutorial
                 storyboard.Children.Add(keyFramesAnimationY);
                 //故事板动画开始
                 storyboard.Begin();
-                //用白色点记录移动轨迹
-                for (int i = path.Count - 1; i >= 0; i--)
-                {
-                    rect = new Rectangle();
-                    rect.Fill = new SolidColorBrush(Colors.Snow);
-                    rect.Width = 5;
-                    rect.Height = 5;
-                    Carrier.Children.Add(rect);
-                    Canvas.SetLeft(rect, path[i].X * GridSize);
-                    Canvas.SetTop(rect, path[i].Y * GridSize);
-                }
+            }
+        }
+
+        private void dispatcherTimer_Tick(object sender, EventArgs e)
+        {
+            if ((End.X == SpiritGameX) && (End.Y == SpiritGameY))
+            {
+                // 未移动使用静止图片
+                Spirit.Source = cutImage(@"Player\PlayerMagic.png", 0, 0, 150, 150);
+            }
+            else
+            {
+                // 移动时使用动态图片
+                Spirit.Source = new BitmapImage((new Uri(@"Player\" + count + ".png", UriKind.Relative)));
+                count = count == 7 ? 0 : count + 1;
+            }
+        }
+
+        private void Carrier_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            //假如点到的地方不是障碍物
+            Point p = e.GetPosition(Carrier);
+            if (pickColor(Deeper, (int)p.X, (int)p.Y) != Colors.Black)
+            {
+                target = p;
+                NormalMove(p); //直线移动
+                //AStarMove(p); //纯A*寻路算法
             }
         }
 
