@@ -33,7 +33,8 @@ namespace GameTutorial
             InitializeComponent();
             ResetMatrix();  //初始化二维矩阵
             InitPlayer();   //初始化目标对象
-            InitMap(); //初始化地图
+            InitMap();      //初始化地图
+            InitMask();     //初始化地图遮罩层
 
             DispatcherTimer dispatcherTimer = new DispatcherTimer();
             dispatcherTimer.Tick += new EventHandler(dispatcherTimer_Tick);
@@ -46,7 +47,7 @@ namespace GameTutorial
         {
             Map.Width = 800;
             Map.Height = 600;
-            Map.Source = new BitmapImage((new Uri(@"Map\Map.jpg", UriKind.Relative)));
+            Map.Source = new BitmapImage((new Uri(@"Map\Map2.jpg", UriKind.Relative)));
             Carrier.Children.Add(Map);
             Map.SetValue(Canvas.ZIndexProperty, -1);
         }
@@ -78,6 +79,29 @@ namespace GameTutorial
             get { return (SpiritGameY - SpiritCenterY) * GridSize; }
         }
 
+        //创建遮罩层
+        Image Mask1 = new Image();
+        Image Mask2 = new Image();
+        private void InitMask()
+        {
+            Mask1.Width = 238;
+            Mask1.Height = 244;
+            Mask1.Source = new BitmapImage((new Uri(@"Map\Mask1.png", UriKind.Relative)));
+            Mask1.Opacity = 0.7;
+            Carrier.Children.Add(Mask1);
+            Canvas.SetZIndex(Mask1, 10000);
+            Canvas.SetLeft(Mask1, 185);
+            Canvas.SetTop(Mask1, 220);
+            Mask2.Width = 198;
+            Mask2.Height = 221;
+            Mask2.Source = new BitmapImage((new Uri(@"Map\Mask2.png", UriKind.Relative)));
+            Mask2.Opacity = 0.7;
+            Carrier.Children.Add(Mask2);
+            Canvas.SetZIndex(Mask2, 10000);
+            Canvas.SetLeft(Mask2, 466);
+            Canvas.SetTop(Mask2, 11);
+        }
+
         private void InitPlayer()
         {
             Spirit.Width = 150;
@@ -101,26 +125,11 @@ namespace GameTutorial
                     Matrix[x, y] = 1;
                 }
             }
-
-            //构建障碍物(第10节用)
-            //for (int x = 10; x < 20; x++) {
-            //    for (int y = 0; y < 10; y++) {
-            //        Matrix[x, y] = 0;
-            //        rect = new Rectangle();
-            //        rect.Fill = new SolidColorBrush(Colors.GreenYellow);
-            //        rect.Opacity = 0.3;
-            //        rect.Stroke = new SolidColorBrush(Colors.Gray);
-            //        rect.Width = GridSize;
-            //        rect.Height = GridSize;
-            //        Carrier.Children.Add(rect);
-            //        Canvas.SetLeft(rect, x * GridSize);
-            //        Canvas.SetTop(rect, y * GridSize);
-            //    }
-            //}
-            //构建障碍物(第9节用)
-            for (int y = 12; y <= 27; y++)
+            
+            //构建障碍物
+            for (int y = 22; y <= 24; y++)
             {
-                for (int x = 0; x <= 7; x++)
+                for (int x = 5; x <= 16; x++)
                 {
                     //障碍物在矩阵中用0表示
                     Matrix[x, y] = 0;
@@ -135,12 +144,13 @@ namespace GameTutorial
                     Canvas.SetTop(rect, y * GridSize);
                 }
             }
-            int move = 0;
-            for (int x = 8; x <= 15; x++)
+
+            for (int y = 11; y <= 14; y++)
             {
-                for (int y = 12; y <= 18; y++)
+                for (int x = 27; x <= 31; x++)
                 {
-                    Matrix[x, y - move] = 0;
+                    //障碍物在矩阵中用0表示
+                    Matrix[x, y] = 0;
                     rect = new Rectangle();
                     rect.Fill = new SolidColorBrush(Colors.GreenYellow);
                     rect.Opacity = 0.3;
@@ -149,17 +159,16 @@ namespace GameTutorial
                     rect.Height = GridSize;
                     Carrier.Children.Add(rect);
                     Canvas.SetLeft(rect, x * GridSize);
-                    Canvas.SetTop(rect, (y - move) * GridSize);
+                    Canvas.SetTop(rect, y * GridSize);
                 }
-                move = x % 2 == 0 ? move + 1 : move;
             }
-            int start_y = 4;
-            int end_y = 10;
-            for (int x = 16; x <= 23; x++)
+
+            for (int y = 18; y <= 21; y++)
             {
-                for (int y = start_y; y <= end_y; y++)
+                for (int x = 33; x <= 37; x++)
                 {
-                    Matrix[x, y + move] = 0;
+                    //障碍物在矩阵中用0表示
+                    Matrix[x, y] = 0;
                     rect = new Rectangle();
                     rect.Fill = new SolidColorBrush(Colors.GreenYellow);
                     rect.Opacity = 0.3;
@@ -168,11 +177,48 @@ namespace GameTutorial
                     rect.Height = GridSize;
                     Carrier.Children.Add(rect);
                     Canvas.SetLeft(rect, x * GridSize);
-                    Canvas.SetTop(rect, (y + move) * GridSize);
+                    Canvas.SetTop(rect, y * GridSize);
                 }
-                start_y = x % 3 == 0 ? start_y + 1 : start_y;
-                end_y = x % 3 == 0 ? end_y - 1 : end_y;
             }
+
+            //int move = 0;
+            //for (int x = 8; x <= 15; x++)
+            //{
+            //    for (int y = 12; y <= 18; y++)
+            //    {
+            //        Matrix[x, y - move] = 0;
+            //        rect = new Rectangle();
+            //        rect.Fill = new SolidColorBrush(Colors.GreenYellow);
+            //        rect.Opacity = 0.3;
+            //        rect.Stroke = new SolidColorBrush(Colors.Gray);
+            //        rect.Width = GridSize;
+            //        rect.Height = GridSize;
+            //        Carrier.Children.Add(rect);
+            //        Canvas.SetLeft(rect, x * GridSize);
+            //        Canvas.SetTop(rect, (y - move) * GridSize);
+            //    }
+            //    move = x % 2 == 0 ? move + 1 : move;
+            //}
+            //int start_y = 4;
+            //int end_y = 10;
+            //for (int x = 16; x <= 23; x++)
+            //{
+            //    for (int y = start_y; y <= end_y; y++)
+            //    {
+            //        Matrix[x, y + move] = 0;
+            //        rect = new Rectangle();
+            //        rect.Fill = new SolidColorBrush(Colors.GreenYellow);
+            //        rect.Opacity = 0.3;
+            //        rect.Stroke = new SolidColorBrush(Colors.Gray);
+            //        rect.Width = GridSize;
+            //        rect.Height = GridSize;
+            //        Carrier.Children.Add(rect);
+            //        Canvas.SetLeft(rect, x * GridSize);
+            //        Canvas.SetTop(rect, (y + move) * GridSize);
+            //    }
+            //    start_y = x % 3 == 0 ? start_y + 1 : start_y;
+            //    end_y = x % 3 == 0 ? end_y - 1 : end_y;
+            //}
         }
 
         private void dispatcherTimer_Tick(object sender, EventArgs e)
